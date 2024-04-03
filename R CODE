@@ -1,0 +1,117 @@
+#provo arimax
+library(fpp3)
+library(fpp2)
+library(strucchange)
+library(ggplot2)
+
+data=read.delim("ITALIARIDOTTA.txt",header=FALSE,sep=" ") #dati originali
+CAR=ts(data,start=c(1996,1),frequency = 12) #trasformo la serie in serie storica partendo dal 1996 perchè ho dati prezzi benzina da li
+CAR_tibble=CAR%>%as_tsibble()
+
+lambda_tibble=CAR_tibble%>%
+  features(value, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+CAR_tibble %>%
+  autoplot() +
+  labs(x = "Month", y = "",title = "Registrations ")
+
+#EXTERNAL REGRESSORS
+
+#1) covid= dummy being 1 in feb/mar/apr 2020, 0 otherwise
+#2) incentive= dummy being 1 in every month with an incentive, 0 otherwise
+#3) working_days= # of working days per month since 1996
+
+covid=read.delim("dummycovid.txt",header=FALSE,sep=" ") #dati originali
+covid=as.numeric(covid$V1)
+
+
+working_days=read.csv("lavorativi.csv",sep=";",header=FALSE)[1]
+
+
+incentive=read.delim("dummyincentivo.txt",header=FALSE,sep=" ")
+Dummyincentive=as.matrix(incentive$V1)
+
+
+data_reg=data.frame(
+  covid=covid,
+  dincentive=Dummyincentive,
+  work=working_days
+)
+
+mat_reg=as.matrix(data_reg)
+
+
+#ARIMAX training
+
+fit_ARIMAX=Arima(CAR,order=c(1,0,2),seasonal=c(0,1,1),lambda = "auto",xreg = mat_reg) 
+fit_ARIMAX$aicc
+
+#evaluate the significance of the regressors
+coeff_arimax=coef(fit_ARIMAX)
+se2_ARIMAX=sqrt(diag(vcov(fit_ARIMAX)))
+coeff_arimax/se2_ARIMAX
+
+
+#evaluate PERFORMANCE
+
+training=window(CAR,start=1996,end=c(2022,12))  
+test=window(CAR,start=c(2023,1))
+
+pred.fitARIMAX <- Arima(training, order=c(1,0,2),
+                        seasonal =c(0,1,1),lambda = "auto",xreg =mat_reg[1:324,1:3]) 
+for1=pred.fitARIMAX%>%
+  forecast(xreg =mat_reg[325:338,1:3] )
+
+checkresiduals(for1$residuals) #no autocorrelation in forecasting errors
+
+accuracy(for1,test) #good model
+
+plot(CAR)
+lines(for1$mean,col="red")
+
+best_ARIMAX=fit_ARIMAX
+checkresiduals(best_ARIMAX)
+
+#MARCH FORECASTING
+
+data_reg_bestprev=data.frame(
+  covid=0,
+  dincentive=0,
+  V1=21
+)
+
+
+ks.test(best_ARIMAX$residuals,rnorm(1000))
+foreacsting_regisrations=best_ARIMAX%>%forecast(xreg= as.matrix(data_reg_bestprev))
+
+foreacsting_regisrations%>%autoplot()
+
+plot(CAR)
+lines(best_ARIMAX$fitted,col="red")
+
+#######################################################################################
+
+#real data :162083
+# theil scomposition of EQM
+
+data2=ts(rbind(data,162083))
+data2
+new=ts(c(CAR,164114))
+
+fmean=mean(new)
+ymean=mean(data2)
+
+vary=var(data2)
+varf=var(new)
+r= cor(data2,new)
+
+EQM= (fmean-ymean)^2 + (varf-r*vary)^2 + (1-r^2)*vary^2
+
+UM=((fmean-ymean)^2)/EQM #CLOSE TO 0 --> VERY GOOD FORECAST
+UR=((varf-r*vary)^2 )/EQM #CLOSE TO 0 --> VERY GOOD FORECAST
+UD=((1-r^2)*vary^2)/EQM#CLOSE TO 1 --> VERY GOOD FORECAST
+  
+error=162083-foreacsting_regisrations$mean
+
+MAPE=(error/162083)*100
