@@ -1,6 +1,6 @@
 # 🚗 Forecasting Car Registrations in Italy
 
-![Banner](https://example.com/car_forecasting_banner.png)
+![Banner](https://github.com/nicobonacorsi/Forecasting-Car-Registrations-in-Italy/raw/refs/heads/main/DALL%C2%B7E%202025-01-02%2021.38.53%20-%20A%20photorealistic%20image%20of%20a%20mystical%20crystal%20ball%20with%20a%20car%20inside%20it.%20Inside%20the%20crystal%20ball,%20there%20is%20an%20arrow%20pointing%20up,%20another%20arrow%20pointing.webp)
 
 ## 🔍 Project Overview
 
